@@ -1,2 +1,7 @@
+# PyCharm
 .idea/
 venv/
+__pycache__/
+
+# API keys and credentials
+twitter_api_credentials.py
