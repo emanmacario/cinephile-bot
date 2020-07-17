@@ -4,6 +4,4 @@ venv/
 __pycache__/
 
 # API keys and credentials
-# TODO: Replace these files with .env files and environment variables
-twitter_api_credentials.py
-tmdb_api_credentials.py
+.env

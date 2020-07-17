@@ -1,23 +1,16 @@
-import tweepy
-from config.twitter_api_credentials import CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET
-
-# Authenticate to Twitter
-auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+from twitter.auth import create_api
 
 
 def main():
-    # Create API object
-    api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-    try:
-        api.verify_credentials()
-        print("Authentication successful")
-    except Exception as e:
-        print("Error during authentication")
-        raise e
+    # Authenticate to Twitter and create API object
+    api = create_api()
 
     # Create a tweet
     api.update_status("Hello from Tweepy!")
+
+
+def check_mentions(api, keywords, since_id):
+    pass
 
 
 if __name__ == "__main__":

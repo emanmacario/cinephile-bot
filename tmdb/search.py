@@ -1,8 +1,13 @@
-import requests
 import json
+import os
+import requests
+from dotenv import load_dotenv, find_dotenv
 from pprint import pprint
-from tmdb.tmdb_api_credentials import API_KEY
 
+# This program uses the TMDb API but is not endorsed or certified by TMDb
+
+load_dotenv(find_dotenv())
+API_KEY = os.environ.get('API_KEY')
 API_VERSION = 3
 BASE_URI = f'https://api.themoviedb.org/{API_VERSION}'
 
@@ -52,6 +57,11 @@ def search_for_movie(query):
 
 
 def get_movie(movie_id):
+    """
+    Retrieves a movie from TMDb with a specific ID
+    :param movie_id: movie ID
+    :return: response JSON obejct
+    """
     print(f"Retrieving movie with ID: {movie_id}")
     path = f'/movie/{movie_id}'
 
@@ -70,13 +80,5 @@ def main():
     # result = get_movie(movie_id)
     # pprint(result)
 
-
-
-
-
-
 if __name__ == "__main__":
     main()
-
-
-
