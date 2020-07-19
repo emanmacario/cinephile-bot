@@ -6,6 +6,9 @@ from pprint import pprint
 
 # This program uses the TMDb API but is not endorsed or certified by TMDb
 
+# Image docs link: https://developers.themoviedb.org/3/getting-started/images
+
+
 load_dotenv(find_dotenv())
 API_KEY = os.environ.get('API_KEY')
 API_VERSION = 3
@@ -64,21 +67,43 @@ def get_movie(movie_id):
     """
     print(f"Retrieving movie with ID: {movie_id}")
     path = f'/movie/{movie_id}'
+    params = {'append_to_response': 'credits'}
+
+    return _GET(path, params)
+
+
+# TODO: Store this shit as class method on object initiation
+def get_configuration():
+    """
+    Gets configuration details for TMDb API v3
+    :return: configuration details
+    """
+    print(f"Retrieving TMDb API v3 configuration details")
+    path = '/configuration'
 
     return _GET(path, None)
 
 
 def main():
-    query = 'The Lighthouse'
-    print(API_KEY)
-
-    result = search_for_movie(query)
-    print(type(result))
-    pprint(result)
+    # query = 'The Lighthouse'
+    # print(API_KEY)
+    #
+    # result = search_for_movie(query)
+    # print(type(result))
+    # pprint(result)
 
     # movie_id = 299534  # Avengers endgame
     # result = get_movie(movie_id)
     # pprint(result)
+    response = get_configuration()
+    pprint(response)
+
+    secure_base_url = 'https://image.tmdb.org/t/p/'
+    file_size = 'original'
+    image_path = '/vScen3pRHnbtlfNxErROpiM8ABm.jpg'
+
+    print(f"URL: {secure_base_url}{file_size}{image_path}")
+
 
 if __name__ == "__main__":
     main()
