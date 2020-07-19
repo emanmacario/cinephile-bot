@@ -5,3 +5,6 @@ __pycache__/
 
 # API keys and credentials
 .env
+
+# Program logic
+images/
