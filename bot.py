@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 import json
 import logging
+import os
+import requests
 import time
 import tweepy
-from tmdb.search import get_movie, search_for_movie
+from textwrap import dedent
+from tmdb.search import get_movie, search_for_movie, get_image_url
+from tweepy import TweepError
 from twitter.auth import create_api
+from utils.string_utils import formatted_date_str, formatted_num_str
 
 # Development imports
 from pprint import pprint
@@ -14,15 +19,11 @@ Tweet objects: https://developer.twitter.com/en/docs/tweets/data-dictionary/over
 User objects: https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
 """
 
-"""
-TODO: Exception handling
-"""
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 
-def check_mentions(api, keywords, since_id):
+def check_mentions(api, since_id):
     logger.info('Retrieving mentions')
     new_since_id = since_id
     for tweet in tweepy.Cursor(api.mentions_timeline, since_id=since_id).items():
@@ -44,7 +45,6 @@ def check_mentions(api, keywords, since_id):
                 new_query = True
                 break
 
-
         new_since_id = max(tweet.id, new_since_id)
 
         # Tweet is ignored if it is a reply to another tweet
@@ -53,7 +53,7 @@ def check_mentions(api, keywords, since_id):
 
         if new_query:
             response = search_for_movie(movie)
-            print("Total results: ", len(response['results']))
+            # print("Total results: ", len(response['results']))
             # pprint(response['results'][0])
             top_result = response['results'][0]
             movie_id = top_result['id']
@@ -62,23 +62,9 @@ def check_mentions(api, keywords, since_id):
             # pprint(response)
             info = extract_info(response)
             # pprint(info)
-            reply_to_user(info)
+            reply_to_user(api, tweet, info)
 
-
-        # if any(keyword in tweet.text.lower() for keyword in keywords):
-        #     logger.info(f"Answering to @{tweet.user.screen_name}")
-
-            # id1 = api.update_status(
-            #     status=f"@{tweet.user.screen_name} Please reach us via DM lol",
-            #     in_reply_to_status_id=tweet.id
-            # )
-
-            # id2 = api.update_status(
-            #     status=f"@{tweet.user.screen_name} yeah true please do that",
-            #     in_reply_to_status_id=id1
-            # )
     return new_since_id
-
 
 
 def extract_info(movie):
@@ -101,8 +87,13 @@ def extract_info(movie):
     # Tweet #1
     info = {key: value for key, value in movie.items() if key in keys}
     info['genres'] = [genre['name'] for genre in movie['genres']]
-    info['production_countries'] = [country['iso_3166_1'] for country in movie['production_countries']]
+    info['production_countries'] = [country['name'] for country in movie['production_countries']]
+    info['poster_url'] = get_image_url(info['poster_path'])
+    info['backdrop_url'] = get_image_url(info['backdrop_path'])
     info.update(get_credits(movie))
+
+    save_image_from_url(info['poster_path'], info['poster_url'])
+
 
     # Debugging
     print("----PRINTING MOVIE INFO---")
@@ -123,32 +114,26 @@ def get_credits(movie):
     crew = credits['crew']
 
     # Get top five actors and/or actresses
-    actors = [person['name'].rstrip() for person in cast[:5]]
+    actors = [person['name'] for person in cast[:5]]
     # Get director(s)
-    directors = [person['name'].rstrip() for person in crew if person['job'] == 'Director']
+    directors = [person['name'] for person in crew if person['job'] == 'Director']
     # Get writer(s)
-    writers = [person['name'].rstrip() for person in crew if person['job'] in ('Writer', 'Screenplay')]
+    writers = [person['name'] for person in crew if person['job'] in ('Writer', 'Screenplay')]
 
     return {'actors': actors, 'directors': directors, 'writers': writers}
 
 
-
-
-
-from textwrap import dedent
-from utils.string_utils import formatted_date_str, formatted_num_str
-
-def reply_to_user(info):
+def reply_to_user(api, tweet, info):
     """
     Replies to a user query on Twitter
-    :param screen_name: user Twitter handle
-    :param in_reply_to_status_id: query status ID
-    :param info: movie info dictionary
+    :param api: Tweepy API object
+    :param tweet: tweet object to reply to
+    :param info: movie information dictionary
     :return: None
     """
-    screen_name = "mantis_chad69"
+    reply_screen_name = tweet.user.screen_name
     reply_status = f"""
-    @{screen_name}
+    @{reply_screen_name}
     🎥 {info['original_title']}
     🗓️ Released {formatted_date_str(info['release_date'])}
     🕐 {info['runtime']} min
@@ -165,23 +150,26 @@ def reply_to_user(info):
     reply_status = dedent(reply_status)
     print(repr(reply_status))
 
-    # api = create_api()
-    # api.update_status(reply_status)
+    # print(repr(dedent(reply_status)))
+    # print(f"Length of reply: {len(reply_status)} chars")
+    # print(reply_status.split('\n'))
 
-    #print(repr(dedent(reply_status)))
-    #print(f"Length of reply: {len(reply_status)} chars")
-    #print(reply_status.split('\n'))
+    user_screen_name = api.me().screen_name
+    statuses = partition_status(user_screen_name, reply_status)
+    for index, status in enumerate(statuses):
+        if not index:
+            image_filename = f"images{info['poster_path']}"
+            tweet = api.update_with_media(image_filename, status=status, in_reply_to_status_id=tweet.id)
+            delete_image(info['poster_path'])
+        else:
+            tweet = api.update_status(status, in_reply_to_status_id=tweet.id)
 
-    partition_status(reply_status)
 
-
-
-
-
-def partition_status(status):
+def partition_status(screen_name, status):
     """
     Splits a status string into statuses of 280 characters or less
     (i.e. the limit imposed on tweet lengths by Twitter)
+    :param screen_name: authenticated Twitter user's screen name
     :param status: string
     :return: list of strings
     """
@@ -196,14 +184,17 @@ def partition_status(status):
     # List of status strings to be tweeted
     statuses = []
 
-    # Divide the original string into sub-tweets
+    # Divide the original tweet string into smaller tweets
     status = ''
     for index, line in enumerate(lines):
         # print(f"Line: {repr(line)}")
         # print(f"Status: {repr(status)}")
-        if len(status + line) > 280:
+        line = f'{line}\n'
+
+        # Since each emoji is two characters and we use 12 emojis (i.e. 280-12=268)
+        if len(status + line) > 268:
             statuses.append(status)
-            status = line
+            status = f'@{screen_name} {line}'
         else:
             status += line
             if index == len(lines) - 1:
@@ -216,18 +207,6 @@ def partition_status(status):
     return statuses
 
 
-
-
-
-def reply_to_self():
-    api = create_api()
-    status = api.update_status('Hello joe')
-
-    reply_id = status.id
-    screen_name = status.user.screen_name
-    api.update_status(f'@{screen_name} Hello, just replying to myself!', in_reply_to_status_id=reply_id)
-
-
 def upload_photo():
     api = create_api()
     try:
@@ -235,15 +214,32 @@ def upload_photo():
         # filename = 'images/neds_dad.jpg'
         with open(filename) as image:
             media = api.update_with_media(filename, status="shut up idiot")
-            # printing the information
-            # print("The media ID is : " + media.media_id_string)
-            # print("The size of the file is : " + str(media.size) + " bytes")
     except TweepError:
         print("Error uploading image")
 
 
+def save_image_from_url(filename, url):
+    """
+    Saves an image in JPG format locally given the image URL
+    :param filename: filename to save image as (starting with forward slash '/')
+    :param url: image URL
+    :return: None
+    """
+    print("Saving image from URL", url)
+    request = requests.get(url)
+    if request.status_code == 200:
+        with open(f'images{filename}', 'wb') as f:
+            f.write(request.content)
 
-from tweepy import TweepError
+
+def delete_image(filename):
+    """
+    Deletes an image from the 'images' directory with filename 'filename'
+    :param filename: image filename (starting with forward slash '/')
+    :return: None
+    """
+    # Delete image
+    os.remove(f'images{filename}')
 
 
 def main():
@@ -251,13 +247,11 @@ def main():
     api = create_api()
     since_id = 1
     while True:
-        since_id = check_mentions(api, ['help', 'support'], since_id)
+        since_id = check_mentions(api, since_id)
         logger.info('Waiting...')
         time.sleep(60)
 
 
 if __name__ == "__main__":
     main()
-    # api = create_api()
-    # status = api.update_status("🎬 🕐 ⭐️💰 💵 🎥 🗓️ 🎦 (genre) ✍ 👪")
     # upload_photo()

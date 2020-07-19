@@ -84,6 +84,19 @@ def get_configuration():
     return _GET(path, None)
 
 
+def get_image_url(path):
+    """
+    Gets full image URL for a given path
+    :param path: image path
+    :return: image URL
+    """
+    configuration = get_configuration()
+    secure_base_url = configuration['images']['secure_base_url']
+    file_size = 'original'
+
+    return f'{secure_base_url}{file_size}{path}'
+
+
 def main():
     # query = 'The Lighthouse'
     # print(API_KEY)
