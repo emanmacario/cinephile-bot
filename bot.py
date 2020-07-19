@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import json
 import logging
 import os
@@ -13,6 +12,8 @@ from utils.string_utils import formatted_date_str, formatted_num_str
 
 # Development imports
 from pprint import pprint
+
+# TODO: Refactor everything :DDDDD
 
 """
 Tweet objects: https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
@@ -249,7 +250,7 @@ def main():
     while True:
         since_id = check_mentions(api, since_id)
         logger.info('Waiting...')
-        time.sleep(60)
+        time.sleep(10)
 
 
 if __name__ == "__main__":
