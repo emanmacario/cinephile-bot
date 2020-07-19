@@ -8,6 +8,8 @@ from pprint import pprint
 
 # Image docs link: https://developers.themoviedb.org/3/getting-started/images
 
+# TODO: Make a class that encapsulates all this shite
+
 
 load_dotenv(find_dotenv())
 API_KEY = os.environ.get('API_KEY')
