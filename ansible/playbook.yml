@@ -1,0 +1,77 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  vars:
+    key_name: my_aws
+    region: us-east-2
+    image: ami-0a63f96e85105c6d3  # Ubuntu Server 18.04 LTS (HVM), SSD Volume Type (64-bit x86)
+    instance_type: t2.micro
+    id: "twitter-bot"
+    sec_group: "{{ id }}-sec"
+
+  tasks:
+    - name: Gathering facts
+      block:
+        - name: Get instance facts
+          # Note: ec2_instance_facts is deprecated
+          ec2_instance_info:
+            aws_access_key: "{{ ec2_access_key }}"
+            aws_secret_key: "{{ ec2_secret_key }}"
+            region: "{{ region }}"
+          register: result
+
+        - name: Instance IDs
+          debug:
+            msg: "ID: {{ item.instance_id }} - State: {{ item.state.name }} - Public DNS: {{ item.public_dns_name }}"
+          loop: "{{ result.instances }}"
+      tags: always
+
+    - name: Provisioning EC2 instance
+      block:
+        - name: Upload public key to AWS
+          ec2_key:
+            name: "{{ key_name }}"
+            key_material: "{{ lookup('file', '/home/emanmacario/.ssh/{{ key_name }}.pub') }}"
+            region: "{{ region }}"
+            aws_access_key: "{{ ec2_access_key }}"
+            aws_secret_key: "{{ ec2_secret_key }}"
+
+        - name: Create security groups
+          ec2_group:
+            name: "{{ sec_group }}"
+            description: "Security group for {{ id }} application"
+            region: "{{ region }}"
+            aws_access_key: "{{ ec2_access_key }}"
+            aws_secret_key: "{{ ec2_secret_key }}"
+            # TODO: Make only accessible via my IP
+            rules:
+              - proto: tcp
+                ports:
+                  - 22
+                cidr_ip: 0.0.0.0/0
+                rule_desc: allow all on ssh port
+          register: result_sec_group
+
+        - name: Create EC2 instance
+          ec2:
+            aws_access_key: "{{ ec2_access_key }}"
+            aws_secret_key: "{{ ec2_secret_key }}"
+            key_name: "{{ key_name }}"
+            id: "{{ id }}"
+            group_id: "{{ result_sec_group.group_id }}"
+            image: "{{ image }}"
+            instance_type: "{{ instance_type }}"
+            region: "{{ region }}"
+            wait: true
+            count: 1
+
+      # For security, only execute instance provisioning if tag 'create_ec2' is specified
+      tags: ['never', 'create_ec2']
+
+
+
+
+
+
