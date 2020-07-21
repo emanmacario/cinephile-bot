@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import requests
@@ -83,7 +82,7 @@ def extract_info(movie):
     save_image_from_url(info['poster_path'], info['poster_url'])
 
     # Debugging
-    logger.info("Movie information:")
+    logger.info("Movie Information")
     logger.info(pformat(info))
 
     return info
@@ -142,8 +141,8 @@ def reply_to_user(api, tweet, info):
         try:
             for index, status in enumerate(statuses):
                 logger.info(f"Tweeting: '{status}'")
-                if not index:
-                    image_filename = f"images{info['poster_path']}"
+                image_filename = f"images{info['poster_path']}"
+                if not index and os.path.exists(image_filename):
                     tweet = api.update_with_media(image_filename, status=status, in_reply_to_status_id=tweet.id)
                     delete_image(info['poster_path'])
                 else:
@@ -212,7 +211,6 @@ def save_image_from_url(filename, url):
     if request.status_code == 200:
         with open(f'images{filename}', 'wb') as f:
             f.write(request.content)
-    time.sleep(10)
 
 
 def delete_image(filename):
@@ -222,7 +220,9 @@ def delete_image(filename):
     :return: None
     """
     # Delete image
-    os.remove(f'images{filename}')
+    path = f'images{filename}'
+    if os.path.exists(path):
+        os.remove(path)
 
 
 def main():
