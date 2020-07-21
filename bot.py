@@ -95,7 +95,6 @@ def extract_info(movie):
 
     save_image_from_url(info['poster_path'], info['poster_url'])
 
-
     # Debugging
     print("----PRINTING MOVIE INFO---")
     pprint(info)
@@ -157,13 +156,23 @@ def reply_to_user(api, tweet, info):
 
     user_screen_name = api.me().screen_name
     statuses = partition_status(user_screen_name, reply_status)
-    for index, status in enumerate(statuses):
-        if not index:
-            image_filename = f"images{info['poster_path']}"
-            tweet = api.update_with_media(image_filename, status=status, in_reply_to_status_id=tweet.id)
-            delete_image(info['poster_path'])
-        else:
-            tweet = api.update_status(status, in_reply_to_status_id=tweet.id)
+    backoff = 1
+    while True:
+        try:
+            for index, status in enumerate(statuses):
+                if not index:
+                    image_filename = f"images{info['poster_path']}"
+                    tweet = api.update_with_media(image_filename, status=status, in_reply_to_status_id=tweet.id)
+                    delete_image(info['poster_path'])
+                else:
+                    tweet = api.update_status(status, in_reply_to_status_id=tweet.id)
+            break
+        except TweepError as e:
+            print("==REASON==")
+            print(e.reason)
+            time.sleep(backoff * 10)
+            backoff += 1
+            continue
 
 
 def partition_status(screen_name, status):
@@ -231,6 +240,7 @@ def save_image_from_url(filename, url):
     if request.status_code == 200:
         with open(f'images{filename}', 'wb') as f:
             f.write(request.content)
+    time.sleep(10)
 
 
 def delete_image(filename):
@@ -250,7 +260,7 @@ def main():
     while True:
         since_id = check_mentions(api, since_id)
         logger.info('Waiting...')
-        time.sleep(10)
+        time.sleep(180)
 
 
 if __name__ == "__main__":
