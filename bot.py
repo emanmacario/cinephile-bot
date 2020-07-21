@@ -11,7 +11,7 @@ from twitter.auth import create_api
 from utils.string_utils import formatted_date_str, formatted_num_str
 
 # Development imports
-from pprint import pprint
+from pprint import pprint, pformat
 
 # TODO: Refactor everything :DDDDD
 
@@ -28,20 +28,12 @@ def check_mentions(api, since_id):
     logger.info('Retrieving mentions')
     new_since_id = since_id
     for tweet in tweepy.Cursor(api.mentions_timeline, since_id=since_id).items():
-        print("="*50)
-        print(tweet)
-        print(tweet.text)
-        #pprint(tweet._json.keys())
-
         hashtags = tweet.entities['hashtags']
-
-        print(hashtags)
         new_query = False
         for hashtag in hashtags:
             if hashtag['text'] == 'movie':
-                print("Indicies: ", hashtag['indices'])
                 index = hashtag['indices'][1] + 1
-                print(f"Movie: '{tweet.text[index:]}'")
+                logger.info(f"Received query for movie '{tweet.text[index:]}' from @{tweet.user.screen_name}")
                 movie = tweet.text[index:]
                 new_query = True
                 break
@@ -54,15 +46,10 @@ def check_mentions(api, since_id):
 
         if new_query:
             response = search_for_movie(movie)
-            # print("Total results: ", len(response['results']))
-            # pprint(response['results'][0])
             top_result = response['results'][0]
             movie_id = top_result['id']
-
             response = get_movie(movie_id)
-            # pprint(response)
             info = extract_info(response)
-            # pprint(info)
             reply_to_user(api, tweet, info)
 
     return new_since_id
@@ -96,9 +83,8 @@ def extract_info(movie):
     save_image_from_url(info['poster_path'], info['poster_url'])
 
     # Debugging
-    print("----PRINTING MOVIE INFO---")
-    pprint(info)
-    print('--------------------------')
+    logger.info("Movie information:")
+    logger.info(pformat(info))
 
     return info
 
@@ -148,18 +134,14 @@ def reply_to_user(api, tweet, info):
     📑 Overview: {info['overview']}"""
 
     reply_status = dedent(reply_status)
-    print(repr(reply_status))
-
-    # print(repr(dedent(reply_status)))
-    # print(f"Length of reply: {len(reply_status)} chars")
-    # print(reply_status.split('\n'))
 
     user_screen_name = api.me().screen_name
     statuses = partition_status(user_screen_name, reply_status)
-    backoff = 1
+    backoffs = 1
     while True:
         try:
             for index, status in enumerate(statuses):
+                logger.info(f"Tweeting: '{status}'")
                 if not index:
                     image_filename = f"images{info['poster_path']}"
                     tweet = api.update_with_media(image_filename, status=status, in_reply_to_status_id=tweet.id)
@@ -168,10 +150,9 @@ def reply_to_user(api, tweet, info):
                     tweet = api.update_status(status, in_reply_to_status_id=tweet.id)
             break
         except TweepError as e:
-            print("==REASON==")
-            print(e.reason)
-            time.sleep(backoff * 10)
-            backoff += 1
+            logger.error(e.reason)
+            time.sleep(backoffs * 10)
+            backoffs += 1
             continue
 
 
@@ -183,13 +164,8 @@ def partition_status(screen_name, status):
     :param status: string
     :return: list of strings
     """
-    print("--- PARTITIONING STATUS ---")
     # status = dedent(status)
     lines = status.split('\n')
-
-    print("**SPLIT**")
-    for line in lines:
-        print(repr(line))
 
     # List of status strings to be tweeted
     statuses = []
@@ -210,10 +186,6 @@ def partition_status(screen_name, status):
             if index == len(lines) - 1:
                 statuses.append(status)
 
-    pprint("**STATUSES**")
-    for status in statuses:
-        print(f"Length: {len(status)}")
-        print(repr(status))
     return statuses
 
 
@@ -235,7 +207,7 @@ def save_image_from_url(filename, url):
     :param url: image URL
     :return: None
     """
-    print("Saving image from URL", url)
+    logger.info(f"Saving image from URL: {url}")
     request = requests.get(url)
     if request.status_code == 200:
         with open(f'images{filename}', 'wb') as f:
@@ -259,7 +231,7 @@ def main():
     since_id = 1
     while True:
         since_id = check_mentions(api, since_id)
-        logger.info('Waiting...')
+        logger.info('Main thread sleeping...')
         time.sleep(180)
 
 
