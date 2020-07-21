@@ -7,12 +7,12 @@
   apt: name={{ item }} state=latest update_cache=yes
   loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools']
 
-- name: Add Docker GPG apt Key
+- name: Add Docker GPG apt key
   apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
-- name: Add Docker Repository
+- name: Add Docker repository
   apt_repository:
     repo: deb https://download.docker.com/linux/ubuntu bionic stable
     state: present
@@ -20,20 +20,19 @@
 - name: Update apt and install docker-ce
   apt: update_cache=yes name=docker-ce state=latest
 
-- name: Install Docker Module for Python
+- name: Install Docker module for Python
   pip:
     name: docker
 
+- name: Pull Docker image for latest version of Cinephile Bot from Docker Hub
+  docker_image:
+    name: prayingemantis/cinephile-bot:4
+    source: pull
 
-#- name: Build Docker image for Twitter bot
-#  docker_image:
-#    name: cinebot  # TODO: Refactor into variable
-#    build:
-#      path: /path/to/build/dir
-#    source: build
-#
-#- name: Create and start Docker container for image
-#  docker_container:
-#    name: cinebot_container
-#    image: cinebot
-#    state: present
+- name: Create and start Docker container for image
+  docker_container:
+    name: cinephile-bot
+    image: prayingemantis/cinephile-bot:4
+    command: python3 bot.py
+    detach: yes
+    state: started

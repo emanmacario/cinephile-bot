@@ -5,6 +5,7 @@ __pycache__/
 
 # API keys and credentials
 .env
+*.csv
 
 # Program logic
 images/

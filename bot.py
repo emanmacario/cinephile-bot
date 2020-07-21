@@ -128,8 +128,8 @@ def reply_to_user(api, tweet, info):
     🎦 {', '.join(info['genres'])}
     🌐 {', '.join(info['production_countries'])}
     🎬 Directed by {', '.join(info['directors'])}
-    👪 Starring {', '.join(info['actors'])}
     ✍ Written by {', '.join(info['writers'])}
+    👪 Starring {', '.join(info['actors'])}
     📑 Overview: {info['overview']}"""
 
     reply_status = dedent(reply_status)
