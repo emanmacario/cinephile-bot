@@ -3,27 +3,26 @@ import os
 import requests
 import time
 import tweepy
+from pprint import pformat
 from textwrap import dedent
 from tmdb.search import get_movie, search_for_movie, get_image_url
 from tweepy import TweepError
 from twitter.auth import create_api
 from utils.string_utils import formatted_date_str, formatted_num_str
 
-# Development imports
-from pprint import pprint, pformat
-
-# TODO: Refactor everything :DDDDD
-
-"""
-Tweet objects: https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
-User objects: https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
-"""
-
+# Set logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 
 def check_mentions(api, since_id):
+    """
+    Checks the bot's mentions timeline for
+    new user queries, and replies to them
+    :param api: Tweepy API object
+    :param since_id: latest tweet ID
+    :return: None
+    """
     logger.info('Retrieving mentions')
     new_since_id = since_id
     for tweet in tweepy.Cursor(api.mentions_timeline, since_id=since_id).items():
@@ -60,7 +59,7 @@ def extract_info(movie):
     :param movie: response JSON object
     :return: dictionary
     """
-    # Keys for tweets
+    # Keys for required information
     keys = ('original_title',
             'release_date',
             'runtime',
@@ -71,7 +70,7 @@ def extract_info(movie):
             'poster_path',
             'backdrop_path')
 
-    # Tweet #1
+    # Extract relevant information from response object
     info = {key: value for key, value in movie.items() if key in keys}
     info['genres'] = [genre['name'] for genre in movie['genres']]
     info['production_countries'] = [country['name'] for country in movie['production_countries']]
@@ -79,9 +78,10 @@ def extract_info(movie):
     info['backdrop_url'] = get_image_url(info['backdrop_path'])
     info.update(get_credits(movie))
 
+    # Save the film poster image locally
     save_image_from_url(info['poster_path'], info['poster_url'])
 
-    # Debugging
+    # Logging
     logger.info("Movie Information")
     logger.info(pformat(info))
 
@@ -116,6 +116,7 @@ def reply_to_user(api, tweet, info):
     :param info: movie information dictionary
     :return: None
     """
+    # Generate a reply status for the query tweet
     reply_screen_name = tweet.user.screen_name
     reply_status = f"""
     @{reply_screen_name}
@@ -131,11 +132,15 @@ def reply_to_user(api, tweet, info):
     ✍ Written by {', '.join(info['writers'])}
     👪 Starring {', '.join(info['actors'])}
     📑 Overview: {info['overview']}"""
-
     reply_status = dedent(reply_status)
 
+    # Split the tweet into smaller sub-tweets if necessary
     user_screen_name = api.me().screen_name
     statuses = partition_status(user_screen_name, reply_status)
+
+    # Reply to the user, backing off in linearly increasing
+    # intervals if the rate of tweeting exceeds the Twitter
+    # API's imposed status creation rate limit
     backoffs = 1
     while True:
         try:
@@ -177,7 +182,8 @@ def partition_status(screen_name, status):
         line = f'{line}\n'
 
         # Since each emoji is two characters and we use 12 emojis (i.e. 280-12=268)
-        if len(status + line) > 268:
+        TOTAL_EMOJIS = 12
+        if len(status + line) > 280 - TOTAL_EMOJIS:
             statuses.append(status)
             status = f'@{screen_name} {line}'
         else:
@@ -186,17 +192,6 @@ def partition_status(screen_name, status):
                 statuses.append(status)
 
     return statuses
-
-
-def upload_photo():
-    api = create_api()
-    try:
-        filename = 'images/vScen3pRHnbtlfNxErROpiM8ABm.jpg'
-        # filename = 'images/neds_dad.jpg'
-        with open(filename) as image:
-            media = api.update_with_media(filename, status="shut up idiot")
-    except TweepError:
-        print("Error uploading image")
 
 
 def save_image_from_url(filename, url):
@@ -225,16 +220,25 @@ def delete_image(filename):
         os.remove(path)
 
 
+def max_since_id(api):
+    """
+    Returns the maximum since ID such that no
+    tweets with lesser since IDs are replied to
+    :param api: Tweepy API object
+    :return: max since ID
+    """
+    return max(tweet.id for tweet in tweepy.Cursor(api.mentions_timeline).items())
+
+
 def main():
     # Authenticate to Twitter and create API object
     api = create_api()
-    since_id = 1
+    since_id = max_since_id(api)
     while True:
         since_id = check_mentions(api, since_id)
         logger.info('Main thread sleeping...')
-        time.sleep(180)
+        time.sleep(10)
 
 
 if __name__ == "__main__":
     main()
-    # upload_photo()
