@@ -1,38 +1,44 @@
 ---
 # Install Docker and associated dependencies on remote
-- name: Install aptitude using apt
-  apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+- name: Install dependencies and Docker
+  block:
+    - name: Install aptitude using apt
+      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
 
-- name: Install required system packages
-  apt: name={{ item }} state=latest update_cache=yes
-  loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools']
+    - name: Install required system packages
+      apt: name={{ item }} state=latest update_cache=yes
+      loop: ['apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools']
 
-- name: Add Docker GPG apt key
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+    - name: Add Docker GPG apt key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
-- name: Add Docker repository
-  apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu bionic stable
-    state: present
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
 
-- name: Update apt and install docker-ce
-  apt: update_cache=yes name=docker-ce state=latest
+    - name: Update apt and install docker-ce
+      apt: update_cache=yes name=docker-ce state=latest
 
-- name: Install Docker module for Python
-  pip:
-    name: docker
+    - name: Install Docker module for Python
+      pip:
+        name: docker
+  tags: always
 
-- name: Pull Docker image for latest version of Cinephile Bot from Docker Hub
-  docker_image:
-    name: prayingemantis/cinephile-bot:4
-    source: pull
+- name: Pull image and start container for application
+  block:
+    - name: Pull default Docker image
+      docker_image:
+        name: "{{ default_container_image }}"
+        source: pull
 
-- name: Create and start Docker container for image
-  docker_container:
-    name: cinephile-bot
-    image: prayingemantis/cinephile-bot:4
-    command: python3 bot.py
-    detach: yes
-    state: started
+    - name: Create default container
+      docker_container:
+        name: "{{ default_container_name }}"
+        image: "{{ default_container_image }}"
+        command: "{{ default_container_command }}"
+        detach: yes
+        state: started
+  tags: always

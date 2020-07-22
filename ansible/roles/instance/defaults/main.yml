@@ -1,0 +1,7 @@
+---
+key_name: my_aws
+region: us-east-2
+image: ami-0a63f96e85105c6d3  # Ubuntu Server 18.04 LTS (HVM), SSD Volume Type (64-bit x86)
+instance_type: t2.micro       # Included in AWS Free Tier
+id: "cine-twitter-bot"
+sec_group: "{{ id }}-sec"

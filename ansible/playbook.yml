@@ -2,92 +2,8 @@
 - hosts: localhost
   connection: local
   gather_facts: False
-  vars:
-    key_name: my_aws
-    region: us-east-2
-    image: ami-0a63f96e85105c6d3  # Ubuntu Server 18.04 LTS (HVM), SSD Volume Type (64-bit x86)
-    instance_type: t2.micro       # Included in AWS Free Tier
-    id: "cinephile-twitter-bot2"
-    sec_group: "{{ id }}-sec"
-
-  tasks:
-    - name: Provisioning EC2 instance
-      block:
-        - name: Upload public key to AWS
-          ec2_key:
-            name: "{{ key_name }}"
-            key_material: "{{ lookup('file', '/home/emanmacario/.ssh/{{ key_name }}.pub') }}" # TODO: Use environment variable e.g. $ printenv
-            region: "{{ region }}"
-            aws_access_key: "{{ ec2_access_key }}"
-            aws_secret_key: "{{ ec2_secret_key }}"
-
-        - name: Create security groups
-          ec2_group:
-            name: "{{ sec_group }}"
-            description: "Security group for {{ id }} application"
-            region: "{{ region }}"
-            aws_access_key: "{{ ec2_access_key }}"
-            aws_secret_key: "{{ ec2_secret_key }}"
-            # TODO: Make only accessible via my IP
-            rules:
-              - proto: tcp
-                ports:
-                  - 22
-                cidr_ip: 0.0.0.0/0
-                rule_desc: allow all on ssh port
-          register: result_sec_group
-
-        - name: Create EC2 instance
-          ec2:
-            aws_access_key: "{{ ec2_access_key }}"
-            aws_secret_key: "{{ ec2_secret_key }}"
-            key_name: "{{ key_name }}"
-            id: "{{ id }}"
-            group_id: "{{ result_sec_group.group_id }}"
-            image: "{{ image }}"
-            instance_type: "{{ instance_type }}"
-            region: "{{ region }}"
-            wait: true
-            count: 1
-          register: tmp
-      # For security, only execute instance provisioning if tag 'create_ec2' is specified
-      tags: ['never', 'create_ec2']
-
-    - name: Gathering facts
-      block:
-        - name: Get instance facts
-          ec2_instance_info:
-            aws_access_key: "{{ ec2_access_key }}"
-            aws_secret_key: "{{ ec2_secret_key }}"
-            region: "{{ region }}"
-          register: ec2
-
-        - name: Instance IDs
-          debug:
-            msg: "ID: {{ item.instance_id }}; State: {{ item.state.name }}; Public DNS: {{ item.public_dns_name }};
-                  Public IP address: {{ item.public_ip_address }}"
-          when: item.public_ip_address is defined
-          loop: "{{ ec2.instances }}"
-      tags: always
-
-    - name: Wait for SSH
-      wait_for:
-        host: "{{ item.public_ip_address }}"
-        port: 22
-        timeout: 300
-        state: started
-      when: item.public_ip_address is defined
-      loop: "{{ ec2.instances }}"
-      #with_items: ec2.results
-
-    - name: Create hosts group to dynamically provision against
-      add_host:
-        hostname: "{{ item.public_ip_address }}"
-        groupname: ec2_instances
-        ansible_ssh_private_key_file: ~/.ssh/my_aws
-      when: item.public_ip_address is defined
-      loop: "{{ ec2.instances }}"
-
+  roles:
+    - instance
 
 - hosts: ec2_instances
   gather_facts: true
@@ -96,6 +12,5 @@
   pre_tasks:
     - name: Install Python 2
       raw: sudo apt-get update; sudo apt-get -y install python
-
   roles:
     - docker

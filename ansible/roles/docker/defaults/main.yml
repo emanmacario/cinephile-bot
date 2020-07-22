@@ -1,0 +1,4 @@
+---
+default_container_name: cinephile-bot
+default_container_image: prayingemantis/cinephile-bot:4
+default_container_command: python3 bot.py
