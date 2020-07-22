@@ -5,7 +5,7 @@ import time
 import tweepy
 from pprint import pformat
 from textwrap import dedent
-from tmdb.search import get_movie, search_for_movie, get_image_url
+from tmdb.search import TMDb
 from tweepy import TweepError
 from twitter.auth import create_api
 from utils.string_utils import formatted_date_str, formatted_num_str
@@ -15,11 +15,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 
-def check_mentions(api, since_id):
+def check_mentions(api, tmdb, since_id):
     """
     Checks the bot's mentions timeline for
     new user queries, and replies to them
     :param api: Tweepy API object
+    :param tmdb: TMDb API object
     :param since_id: latest tweet ID
     :return: None
     """
@@ -32,7 +33,7 @@ def check_mentions(api, since_id):
             if hashtag['text'] == 'movie':
                 index = hashtag['indices'][1] + 1
                 logger.info(f"Received query for movie '{tweet.text[index:]}' from @{tweet.user.screen_name}")
-                movie = tweet.text[index:]
+                movie_name = tweet.text[index:]
                 new_query = True
                 break
 
@@ -43,19 +44,23 @@ def check_mentions(api, since_id):
             continue
 
         if new_query:
-            response = search_for_movie(movie)
-            top_result = response['results'][0]
-            movie_id = top_result['id']
-            response = get_movie(movie_id)
-            info = extract_info(response)
+            movies = tmdb.search_movies(movie_name)
+            if movies['total_results'] > 0:
+                top_result = movies['results'][0]
+                movie_id = top_result['id']
+                movie = tmdb.get_movie_by_id(movie_id)
+                info = extract_info(tmdb, movie)
+            else:
+                info = None
             reply_to_user(api, tweet, info)
 
     return new_since_id
 
 
-def extract_info(movie):
+def extract_info(tmdb, movie):
     """
     Extracts key information from primary information given in the JSON response object
+    :param tmdb: TMDb API object
     :param movie: response JSON object
     :return: dictionary
     """
@@ -74,8 +79,8 @@ def extract_info(movie):
     info = {key: value for key, value in movie.items() if key in keys}
     info['genres'] = [genre['name'] for genre in movie['genres']]
     info['production_countries'] = [country['name'] for country in movie['production_countries']]
-    info['poster_url'] = get_image_url(info['poster_path'])
-    info['backdrop_url'] = get_image_url(info['backdrop_path'])
+    info['poster_url'] = tmdb.get_image_url(info['poster_path'])
+    info['backdrop_url'] = tmdb.get_image_url(info['backdrop_path'])
     info.update(get_credits(movie))
 
     # Save the film poster image locally
@@ -94,9 +99,8 @@ def get_credits(movie):
     :param movie: movie response JSON object from TMDb API v3
     :return: credits dictionary
     """
-    credits = movie['credits']
-    cast = credits['cast']
-    crew = credits['crew']
+    cast = movie['credits']['cast']
+    crew = movie['credits']['crew']
 
     # Get top five actors and/or actresses
     actors = [person['name'] for person in cast[:5]]
@@ -118,34 +122,40 @@ def reply_to_user(api, tweet, info):
     """
     # Generate a reply status for the query tweet
     reply_screen_name = tweet.user.screen_name
-    reply_status = f"""
-    @{reply_screen_name}
-    🎥 {info['original_title']}
-    🗓️ Released {formatted_date_str(info['release_date'])}
-    🕐 {info['runtime']} min
-    ⭐ {info['vote_average']} rating
-    💰 ${formatted_num_str(info['budget'])} budget
-    💵 ${formatted_num_str(info['revenue'])} box office
-    🎦 {', '.join(info['genres'])}
-    🌐 {', '.join(info['production_countries'])}
-    🎬 Directed by {', '.join(info['directors'])}
-    ✍ Written by {', '.join(info['writers'])}
-    👪 Starring {', '.join(info['actors'])}
-    📑 Overview: {info['overview']}"""
-    reply_status = dedent(reply_status)
+    if info is not None:
+        reply_status = f"""
+        @{reply_screen_name}
+        🎥 {info['original_title']}
+        🗓️ Released {formatted_date_str(info['release_date'])}
+        🕐 {info['runtime']} min
+        ⭐ {info['vote_average']} rating
+        💰 ${formatted_num_str(info['budget'])} budget
+        💵 ${formatted_num_str(info['revenue'])} box office
+        🎦 {', '.join(info['genres'])}
+        🌐 {', '.join(info['production_countries'])}
+        🎬 Directed by {', '.join(info['directors'])}
+        ✍ Written by {', '.join(info['writers'])}
+        👪 Starring {', '.join(info['actors'])}
+        📑 Overview: {info['overview']}"""
+        reply_status = dedent(reply_status)
+    else:
+        reply_status = f"@{reply_screen_name} Sorry, could not find that movie!"
 
     # Split the tweet into smaller sub-tweets if necessary
     user_screen_name = api.me().screen_name
     statuses = partition_status(user_screen_name, reply_status)
 
     # Reply to the user, backing off in linearly increasing
-    # intervals if the rate of tweeting exceeds the Twitter
-    # API's imposed status creation rate limit
+    # intervals if we have exceeded Twitter API's rate limits
     backoffs = 1
     while True:
         try:
             for index, status in enumerate(statuses):
                 logger.info(f"Tweeting: '{status}'")
+                if info is None:
+                    tweet = api.update_status(status, in_reply_to_status_id=tweet.id)
+                    continue
+
                 image_filename = f"images{info['poster_path']}"
                 if not index and os.path.exists(image_filename):
                     tweet = api.update_with_media(image_filename, status=status, in_reply_to_status_id=tweet.id)
@@ -231,11 +241,14 @@ def max_since_id(api):
 
 
 def main():
-    # Authenticate to Twitter and create API object
+    # Authenticate to Twitter and create API objects
     api = create_api()
+    tmdb = TMDb()
     since_id = max_since_id(api)
+
+    # Main loop of bot
     while True:
-        since_id = check_mentions(api, since_id)
+        since_id = check_mentions(api, tmdb, since_id)
         logger.info('Main thread sleeping...')
         time.sleep(10)
 
