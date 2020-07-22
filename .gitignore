@@ -9,3 +9,6 @@ __pycache__/
 
 # Program logic
 images/
+
+# Debugging
+*.txt

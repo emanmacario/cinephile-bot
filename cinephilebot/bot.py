@@ -1,6 +1,5 @@
 import logging
 import os
-import requests
 import time
 import tweepy
 from pprint import pformat
@@ -8,6 +7,7 @@ from textwrap import dedent
 from tmdb.search import TMDb
 from tweepy import TweepError
 from twitter.auth import create_api
+from utils.file_utils import save_image_from_url, delete_image
 from utils.string_utils import formatted_date_str, formatted_num_str
 
 # Set logger
@@ -139,7 +139,7 @@ def reply_to_user(api, tweet, info):
         📑 Overview: {info['overview']}"""
         reply_status = dedent(reply_status)
     else:
-        reply_status = f"@{reply_screen_name} Sorry, could not find that movie!"
+        reply_status = f"@{reply_screen_name} Sorry, I could not find that movie!"
 
     # Split the tweet into smaller sub-tweets if necessary
     user_screen_name = api.me().screen_name
@@ -202,32 +202,6 @@ def partition_status(screen_name, status):
                 statuses.append(status)
 
     return statuses
-
-
-def save_image_from_url(filename, url):
-    """
-    Saves an image in JPG format locally given the image URL
-    :param filename: filename to save image as (starting with forward slash '/')
-    :param url: image URL
-    :return: None
-    """
-    logger.info(f"Saving image from URL: {url}")
-    request = requests.get(url)
-    if request.status_code == 200:
-        with open(f'images{filename}', 'wb') as f:
-            f.write(request.content)
-
-
-def delete_image(filename):
-    """
-    Deletes an image from the 'images' directory with filename 'filename'
-    :param filename: image filename (starting with forward slash '/')
-    :return: None
-    """
-    # Delete image
-    path = f'images{filename}'
-    if os.path.exists(path):
-        os.remove(path)
 
 
 def max_since_id(api):
