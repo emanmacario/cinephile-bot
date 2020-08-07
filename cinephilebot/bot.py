@@ -1,14 +1,18 @@
 import logging
 import os
+import re
 import time
 import tweepy
-from pprint import pformat
+from pprint import pformat, pprint
 from textwrap import dedent
 from tmdb.search import TMDb
 from tweepy import TweepError
 from twitter.auth import create_api
 from utils.file_utils import save_image_from_url, delete_image
 from utils.string_utils import formatted_date_str, formatted_num_str
+
+# Debugging
+import random
 
 # Set logger
 logging.basicConfig(level=logging.INFO)
@@ -26,14 +30,15 @@ def check_mentions(api, tmdb, since_id):
     """
     logger.info('Retrieving mentions')
     new_since_id = since_id
+    since_id = None if since_id == 0 else since_id
     for tweet in tweepy.Cursor(api.mentions_timeline, since_id=since_id).items():
         hashtags = tweet.entities['hashtags']
         new_query = False
         for hashtag in hashtags:
             if hashtag['text'] == 'movie':
                 index = hashtag['indices'][1] + 1
-                logger.info(f"Received query for movie '{tweet.text[index:]}' from @{tweet.user.screen_name}")
                 movie_name = tweet.text[index:]
+                logger.info(f"Received query for movie '{movie_name}' from @{tweet.user.screen_name}")
                 new_query = True
                 break
 
@@ -122,24 +127,8 @@ def reply_to_user(api, tweet, info):
     """
     # Generate a reply status for the query tweet
     reply_screen_name = tweet.user.screen_name
-    if info is not None:
-        reply_status = f"""
-        @{reply_screen_name}
-        🎥 {info['original_title']}
-        🗓️ Released {formatted_date_str(info['release_date'])}
-        🕐 {info['runtime']} min
-        ⭐ {info['vote_average']} rating
-        💰 ${formatted_num_str(info['budget'])} budget
-        💵 ${formatted_num_str(info['revenue'])} box office
-        🎦 {', '.join(info['genres'])}
-        🌐 {', '.join(info['production_countries'])}
-        🎬 Directed by {', '.join(info['directors'])}
-        ✍ Written by {', '.join(info['writers'])}
-        👪 Starring {', '.join(info['actors'])}
-        📑 Overview: {info['overview']}"""
-        reply_status = dedent(reply_status)
-    else:
-        reply_status = f"@{reply_screen_name} Sorry, I could not find that movie!"
+    reply_status = generate_reply(info)
+    reply_status = f"@{reply_screen_name}{reply_status}"
 
     # Split the tweet into smaller sub-tweets if necessary
     user_screen_name = api.me().screen_name
@@ -168,6 +157,33 @@ def reply_to_user(api, tweet, info):
             time.sleep(backoffs * 10)
             backoffs += 1
             continue
+
+
+def generate_reply(info):
+    """
+    Generates a reply string for a user query to be sent as part of a Tweet or a direct message
+    :param info: movie info dictionary
+    :return: reply string
+    """
+    if info is not None:
+        reply = f"""
+        🎥 {info['original_title'].upper()}
+        🗓️ {formatted_date_str(info['release_date'])}
+        🕐 {info['runtime']} min
+        ⭐ {info['vote_average']} rating
+        💰 ${formatted_num_str(info['budget'])} budget
+        💵 ${formatted_num_str(info['revenue'])} box office
+        🎦 {', '.join(info['genres'])}
+        🌐 {', '.join(info['production_countries'])}
+        🎬 Directed by {', '.join(info['directors'])}
+        ✍ Written by {', '.join(info['writers'])}
+        👪 Starring {', '.join(info['actors'])}
+        📑 Overview: {info['overview']}"""
+        reply = dedent(reply)
+    else:
+        reply = " Sorry, I could not find that movie!"
+
+    return reply
 
 
 def partition_status(screen_name, status):
@@ -211,7 +227,66 @@ def max_since_id(api):
     :param api: Tweepy API object
     :return: max since ID
     """
-    return max(tweet.id for tweet in tweepy.Cursor(api.mentions_timeline).items())
+    mentions = tweepy.Cursor(api.mentions_timeline).items()
+    tweet_ids = [tweet.id for tweet in mentions]
+    return max(tweet_ids) if tweet_ids else 0
+
+
+def check_direct_messages(api, tmdb):
+    # Get authenticated user's Twitter ID
+    user_id = api.me().id
+    print(f"My ID: {user_id}")
+    print(type(user_id))
+
+    # Process all new direct messages
+    direct_messages = api.list_direct_messages()
+    for message in direct_messages:
+
+        message_id = int(message.id)
+        sender_id = int(message.message_create['sender_id'])
+        recipient_id = int(message.message_create['target']['recipient_id'])
+        text = message.message_create['message_data']['text']
+
+        # Skip DMs the bot has sent out itself
+        if sender_id != user_id:
+            # print('-' * 50)
+            # print(f"message ID: {message_id}")
+            # print(f"Sender ID: {sender_id}")
+            # print(f"Recipient ID: {recipient_id}")
+            # print(f"Message text: {text}")
+            # pprint(message)
+
+            query_pattern = re.compile(r'''!(?P<command>(movie)|(similar))\s  # Command name
+                                            (?P<movie>.+)                     # Movie name
+                                        ''', re.VERBOSE)
+            match = query_pattern.match(text)
+            if match is not None:
+                command = match.group('command')
+                movie_name = match.group('movie')
+                logger.info(f"Received query for movie '{movie_name}' from user ID {sender_id}")
+
+                if command == 'movie':
+                    movies = tmdb.search_movies(movie_name)
+                    if movies['total_results'] > 0:
+                        top_result = movies['results'][0]
+                        movie_id = top_result['id']
+                        movie = tmdb.get_movie_by_id(movie_id)
+                        info = extract_info(tmdb, movie)
+                    else:
+                        info = None
+
+                    reply = generate_reply(info)
+                    image_filename = f"images{info['poster_path']}"
+                    try:
+                        media_id = api.media_upload(image_filename).media_id
+                        api.send_direct_message(sender_id, reply)
+                        api.send_direct_message(sender_id, '', attachment_type='media', attachment_media_id=media_id)
+                        api.destroy_direct_message(message_id)
+                        logger.info(f'Replying to user with query !{command} {movie_name}')
+                        logger.info(reply)
+                        logger.info('Deleting direct message from user...')
+                    except TweepError as e:
+                        logger.error(e.reason)
 
 
 def main():
@@ -220,9 +295,12 @@ def main():
     tmdb = TMDb()
     since_id = max_since_id(api)
 
+    logger.info(f"Since ID: {since_id}")
+
     # Main loop of bot
     while True:
-        since_id = check_mentions(api, tmdb, since_id)
+        # since_id = check_mentions(api, tmdb, since_id)
+        check_direct_messages(api, tmdb)
         logger.info('Main thread sleeping...')
         time.sleep(10)
 
