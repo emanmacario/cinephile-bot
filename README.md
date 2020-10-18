@@ -3,7 +3,7 @@ A Twitter bot that replies to user query tweets and presents them with standard 
 such as year of release, budget, box office, director(s), actor(s) etc.
 
 <div style="text-align: center">
-<img style="margin-top: 1000" src="./assets/cinephile_bot.JPG" width="300" height="auto" alt="Paths of Glory Tweet">
+<img src="./assets/cinephile_bot.JPG" width="500" height="auto" alt="Paths of Glory Tweet">
 </div>
 
 
@@ -17,15 +17,18 @@ such as year of release, budget, box office, director(s), actor(s) etc.
     2. Installs Docker CE on the instance
     3. Pulls the Docker image mentioned above, and runs a container for it
 * Uses [Ansible Vault](https://docs.ansible.com/ansible/latest/user_guide/vault.html) to encrypt my AWS access key and secret key so they are not exposed to the public, but can be stored directly on GitHub
-* Uses the [Twitter API](https://developer.twitter.com/en/docs/twitter-api) and the [The Movie Database (TMDb) API v3](https://developers.themoviedb.org/3) to process a user's query, retrieve movie data, and tweet a response
+* Uses the [Twitter API](https://developer.twitter.com/en/docs/twitter-api) and the [The Movie Database (TMDb) API v3](https://developers.themoviedb.org/3) to process a user's query (via either tweet or direct message), retrieve movie data, and tweet a response
 
 ## Sample Tweet
 
 <div style="text-align: center;">
-    <img src="./assets/paths_of_glory.JPG" width="500" height="auto" alt="Paths of Glory Tweet">
+    <img src="./assets/paths_of_glory.JPG" width="800" height="auto" alt="Paths of Glory Tweet">
 </div>
 
-
+## Sample Direct Message
+<div style="text-align: center;">
+    <img src="./assets/before_sunset_direct_message.JPG" alt="Paths of Glory Tweet">
+</div>
 
 ## Requirements
 Must have an AWS account and an IAM user with *access key ID* and *secret access key* credentials
@@ -63,6 +66,9 @@ bot on your newly provisioned AWS EC2 instance
 ```bash
 $ ansible-playbook playbook.yml --ask-vault-pass --tags create_ec2
 ```
+
+## Issues
+* Direct messages from the bot may take a while. This is due to a known issue with the Twitter API, where it takes a few minutes for direct messages to register on their backend
 
 ## License
 MIT © Emmanuel Macario
