@@ -3,7 +3,7 @@ A Twitter bot that replies to user query tweets and presents them with standard 
 such as year of release, budget, box office, director(s), actor(s) etc.
 
 <div style="text-align: center">
-<img style="margin-top: 1000" src="./images/cinephile_bot.JPG" width="300" height="auto" alt="Paths of Glory Tweet">
+<img style="margin-top: 1000" src="./assets/cinephile_bot.JPG" width="300" height="auto" alt="Paths of Glory Tweet">
 </div>
 
 
@@ -22,7 +22,7 @@ such as year of release, budget, box office, director(s), actor(s) etc.
 ## Sample Tweet
 
 <div style="text-align: center;">
-    <img src="./images/paths_of_glory.JPG" width="500" height="auto" alt="Paths of Glory Tweet">
+    <img src="./assets/paths_of_glory.JPG" width="500" height="auto" alt="Paths of Glory Tweet">
 </div>
 
 
