@@ -11,7 +11,7 @@ such as year of release, budget, box office, director(s), actor(s) etc.
 
 
 ## Features
-* Uses [Github Actions](https://github.com/features/actions) to push my bot's Docker image to [Docker Hub](https://hub.docker.com/) whenever code is pushed into the `master` branch
+* Uses [Github Actions](https://github.com/features/actions) to build and push my bot's Docker image to [Docker Hub](https://hub.docker.com/) whenever code is pushed into the `master` branch
 * Contains an [Ansible](https://www.ansible.com/) playbook to:
     1. Dynamically provision a single AWS EC2 instance (default configuration is `t2.micro` running `Ubuntu Server 18.04 LTS (HVM)` in region `us-east-2`) ([AWS Free Tier](https://aws.amazon.com/free/) eligible)
     2. Installs Docker CE on the instance
