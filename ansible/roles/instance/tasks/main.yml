@@ -7,16 +7,16 @@
         name: "{{ key_name }}"
         key_material: "{{ lookup('file', '/home/emanmacario/.ssh/{{ key_name }}.pub') }}" # TODO: Use environment variable e.g. $ printenv
         region: "{{ region }}"
-        aws_access_key: "{{ ec2_access_key }}"
-        aws_secret_key: "{{ ec2_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
 
     - name: Create security groups
       ec2_group:
         name: "{{ sec_group }}"
         description: "Security group for {{ id }} application"
         region: "{{ region }}"
-        aws_access_key: "{{ ec2_access_key }}"
-        aws_secret_key: "{{ ec2_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
         # TODO: Make only accessible via my IP
         rules:
           - proto: tcp
@@ -28,8 +28,8 @@
 
     - name: Create EC2 instance
       ec2:
-        aws_access_key: "{{ ec2_access_key }}"
-        aws_secret_key: "{{ ec2_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
         key_name: "{{ key_name }}"
         id: "{{ id }}"
         group_id: "{{ result_sec_group.group_id }}"
@@ -45,8 +45,8 @@
   block:
     - name: Get instance facts
       ec2_instance_info:
-        aws_access_key: "{{ ec2_access_key }}"
-        aws_secret_key: "{{ ec2_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
         region: "{{ region }}"
       register: ec2
 
