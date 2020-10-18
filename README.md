@@ -1,26 +1,21 @@
 # 🎥🤖 Cinephile Bot
 A Twitter bot that replies to user query tweets and presents them with standard information about films
-such as year of release, budget, box office, director(s), actor(s) etc.
+such as year of release, budget, box office earnings, director(s), actor(s) etc.
 
 <div style="text-align: center">
 <img src="./assets/cinephile_bot.JPG" width="500" height="auto" alt="Paths of Glory Tweet">
 </div>
 
-
-
-
-
 ## Features
 * Uses [Github Actions](https://github.com/features/actions) to build and push my bot's Docker image to [Docker Hub](https://hub.docker.com/) whenever code is pushed into the `master` branch
 * Contains an [Ansible](https://www.ansible.com/) playbook to:
     1. Dynamically provision a single AWS EC2 instance (default configuration is `t2.micro` running `Ubuntu Server 18.04 LTS (HVM)` in region `us-east-2`) ([AWS Free Tier](https://aws.amazon.com/free/) eligible)
-    2. Installs Docker CE on the instance
-    3. Pulls the Docker image mentioned above, and runs a container for it
+    2. Install Docker CE on the instance
+    3. Pull the Docker image mentioned above, and run a container for it
 * Uses [Ansible Vault](https://docs.ansible.com/ansible/latest/user_guide/vault.html) to encrypt my AWS access key and secret key so they are not exposed to the public, but can be stored directly on GitHub
 * Uses the [Twitter API](https://developer.twitter.com/en/docs/twitter-api) and the [The Movie Database (TMDb) API v3](https://developers.themoviedb.org/3) to process a user's query (via either tweet or direct message), retrieve movie data, and tweet a response
 
 ## Sample Tweet
-
 <div style="text-align: center;">
     <img src="./assets/paths_of_glory.JPG" width="800" height="auto" alt="Paths of Glory Tweet">
 </div>
