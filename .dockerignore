@@ -1,0 +1,6 @@
+.github
+.idea
+ansbile
+*__pycache__
+LICENSE
+README.md

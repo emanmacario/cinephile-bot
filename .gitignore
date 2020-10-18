@@ -12,3 +12,6 @@ images/
 
 # Debugging
 *.txt
+
+# Utility scripts
+delete_tweets.py
