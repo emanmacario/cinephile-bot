@@ -2,7 +2,13 @@
 A Twitter bot that replies to user query tweets and presents them with standard information about films
 such as year of release, budget, box office, director(s), actor(s) etc.
 
-*Note: This program uses the TMDb API but is not endorsed or certified by TMDb*
+<div style="text-align: center">
+<img style="margin-top: 1000" src="./images/cinephile_bot.JPG" width="300" height="auto" alt="Paths of Glory Tweet">
+</div>
+
+
+
+
 
 ## Features
 * Uses [Github Actions](https://github.com/features/actions) to push my bot's Docker image to [Docker Hub](https://hub.docker.com/) whenever code is pushed into the `master` branch
@@ -13,10 +19,16 @@ such as year of release, budget, box office, director(s), actor(s) etc.
 * Uses [Ansible Vault](https://docs.ansible.com/ansible/latest/user_guide/vault.html) to encrypt my AWS access key and secret key so they are not exposed to the public, but can be stored directly on GitHub
 * Uses the [Twitter API](https://developer.twitter.com/en/docs/twitter-api) and the [The Movie Database (TMDb) API v3](https://developers.themoviedb.org/3) to process a user's query, retrieve movie data, and tweet a response
 
+## Sample Tweet
+
+<div style="text-align: center;">
+    <img src="./images/paths_of_glory.JPG" width="500" height="auto" alt="Paths of Glory Tweet">
+</div>
+
+
+
 ## Requirements
 Must have an AWS account and an IAM user with *access key ID* and *secret access key* credentials
-
-**TODO: Include GIF/Screenshot here**
 
 ## Usage
 First, install Ansible and associated dependencies on the control machine
@@ -57,3 +69,5 @@ MIT © Emmanuel Macario
 
 ## Attribution
 Created by Emmanuel Macario
+
+**Note**: *This program uses the TMDb API but is not endorsed or certified by TMDb*
